@@ -1,0 +1,10 @@
+{
+    "nciudades":100,
+    "radio":20,
+    "tam_poblacion":10,
+    "ngen":1000,
+    "npadres":3,
+    "pcruce":0.3,
+    "pmutacion":0.2,
+    "eliminacionelitismo":"peor"
+}
