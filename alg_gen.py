@@ -39,8 +39,12 @@ def seleccion_padres(npadres, tam_poblacion, poblacion):
     padres = []
     for i_torneo in range(tam_poblacion):
         padres_elegidos = poblacion[np.random.choice(tam_poblacion, npadres)]
-        padre1, padre2 = padres_elegidos[0], padres_elegidos[1]
-        padres.append(padre1 if padre1.fitness >= padre2.fitness else padre2)
+        [print(padre.fitness) for padre in padres_elegidos]
+        ind_padre = np.argmin(padres_elegidos)
+        print(ind_padre)
+        padres.append(padres_elegidos[ind_padre])
+        print(padres_elegidos[ind_padre].fitness)
+        print()
     return np.array(padres)
 
 def cruce(pcruce, tam_poblacion, nciudades, padres, matriz_distancias):
@@ -165,4 +169,23 @@ if __name__ == "__main__":
     #print(h1)
     #h2 = cruce_parcialmente_mapeado(np.array([5,4,2,0,6,3,7,1]), np.array([0,1,2,3,4,5,6,7]), np.array([2,5]))
     #print(h2)
-    main()
+    #main()
+
+    # Lectura de parámetros
+    f_params = open("params.json")
+    params = json.load(f_params)
+    f_params.close()
+
+    # Inicialización de ciudades en función de parámetros
+    matriz_distancias = init_ciudades(params["nciudades"], params["radio"])
+
+    # Lectura de ciudades
+    ciudades = np.loadtxt("ciudades.csv",delimiter=",")
+    #print(ciudades)
+
+    # Generación de población inicial
+    poblacion = init_poblacion(params["tam_poblacion"], matriz_distancias, params["nciudades"])
+
+    padres = seleccion_padres(params["npadres"], params["tam_poblacion"], poblacion)
+
+    #[print(f'G: {poblacion[i].genotipo} \n F: {poblacion[i].fitness} \n Gp: {padres[i].genotipo} \n Fp: {padres[i].fitness} \n') for i in range(params["tam_poblacion"])]
