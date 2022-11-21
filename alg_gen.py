@@ -17,8 +17,11 @@ def init_ciudades(nciudades, radio):
     # Generamos nciudades en coordenadas cartesianas desde -radio a +radio para x e y
     ciudades = (np.random.random([nciudades,2]) * radio*2) - radio
     np.savetxt("ciudades.csv", ciudades, delimiter=",")
-    # P es la p-norma de Minkowski. p=1 distancia rectilínea, p=2 distancia euclidiana
-    return sp.spatial.distance_matrix(ciudades, ciudades, p=2)
+
+def cargar_ciudades(path):
+    ciudades = np.loadtxt(path, delimiter=",")
+    # p es la p-norma de Minkowski. p=1 distancia rectilínea, p=2 distancia euclidiana
+    return (ciudades, sp.spatial.distance_matrix(ciudades, ciudades, p=2))
     
 
 def init_poblacion(tam_poblacion, matriz_distancias, nciudades):
@@ -39,12 +42,8 @@ def seleccion_padres(npadres, tam_poblacion, poblacion):
     padres = []
     for i_torneo in range(tam_poblacion):
         padres_elegidos = poblacion[np.random.choice(tam_poblacion, npadres)]
-        [print(padre.fitness) for padre in padres_elegidos]
         ind_padre = np.argmin(padres_elegidos)
-        print(ind_padre)
         padres.append(padres_elegidos[ind_padre])
-        print(padres_elegidos[ind_padre].fitness)
-        print()
     return np.array(padres)
 
 def cruce(pcruce, tam_poblacion, nciudades, padres, matriz_distancias):
@@ -134,6 +133,46 @@ def fitness(indiv, matriz_distancias, nciudades):
             distancia += matriz_distancias[int(indiv[i])][int(indiv[i+1])]
     return distancia
 
+def generar_curva_progreso(evolucion_fitness, array_bars, pasos_intervalos, ngen):
+    fig = plt.figure()
+    #x = np.arange(1, (ngen/pasos_intervalos))
+    x = np.arange(ngen)
+    #plt.plot(evolucion_fitness)
+    plt.errorbar(x, evolucion_fitness, yerr=array_bars, errorevery=pasos_intervalos, capsize=3.0, ecolor='black')
+    plt.xlabel("Generaciones")
+    plt.ylabel("Fitness")
+    plt.title("Curva de progreso")
+    plt.ticklabel_format(axis='y', style="sci", scilimits=None)
+    plt.savefig("./figures/curva_progreso_7P_03C_06M.png")
+    plt.show()
+
+
+def algoritmo_genetico(params):
+    ciudades, matriz_distancias = cargar_ciudades("./ciudades.csv")
+
+    # Generación de población inicial
+    poblacion = init_poblacion(params["tam_poblacion"], matriz_distancias, params["nciudades"])
+
+    if params["verbose"]:
+        print("Estado Inicial: \n")
+        print(f'Fitness mejor individuo: {poblacion[0].fitness} \n\n')
+
+    t_init = time.time()
+    display_timer = time.time()
+
+    evolucion_fitness = []
+
+    # Iteraciones en el orden de ngen
+    for i in range(params["ngen"]):
+        i_poblacion = generacion(params, poblacion.copy(), matriz_distancias)
+        evolucion_fitness.append(i_poblacion[0].fitness)
+        poblacion = i_poblacion.copy()
+        if params["verbose"] and time.time() - display_timer >= params["display_time"]:
+            print(f'Generacion: {i}\n Tiempo: {(time.time()-t_init):0.3} \n Fitness mejor individuo: {poblacion[0].fitness}\n\n')
+            display_timer = time.time()
+
+    return evolucion_fitness, poblacion
+
 def main():
     # Lectura de parámetros
     f_params = open("params.json")
@@ -141,51 +180,25 @@ def main():
     f_params.close()
 
     # Inicialización de ciudades en función de parámetros
-    matriz_distancias = init_ciudades(params["nciudades"], params["radio"])
+    init_ciudades(params["nciudades"], params["radio"])
 
-    # Lectura de ciudades
-    ciudades = np.loadtxt("ciudades.csv",delimiter=",")
-    #print(ciudades)
+    evolucion_fitness_iter = []
+    for i in range(params["niter"]):
+        evolucion_fitness, poblacion = algoritmo_genetico(params)
+        evolucion_fitness_iter.append(evolucion_fitness)
 
-    # Generación de población inicial
-    poblacion = init_poblacion(params["tam_poblacion"], matriz_distancias, params["nciudades"])
-    t_init = time.time()
-    print("Estado Inicial: \n")
-    print(f'Fitness mejor individuo: {poblacion[0].fitness} \n\n')
+    evolucion_fitness_iter = np.array(evolucion_fitness_iter)
+    mean_evolucion_fitness = evolucion_fitness_iter.mean(axis=0)
+    std_evolucion_fitness = evolucion_fitness_iter.std(axis=0)
 
-    evolucion_fitness = []
-    # Iteraciones en el orden de ngen
-    for i in range(params["ngen"]):
-        i_poblacion = generacion(params, poblacion.copy(), matriz_distancias)
-        evolucion_fitness.append(i_poblacion[0].fitness)
-        poblacion = i_poblacion.copy()
-        print(f'Generacion: {i}\n Tiempo: {(time.time()-t_init):0.3} \n Fitness mejor individuo: {poblacion[0].fitness}\n\n')
+    generar_curva_progreso(mean_evolucion_fitness, std_evolucion_fitness, params["pasos_intervalos"], params["ngen"])
 
-    plt.plot(evolucion_fitness)
-    plt.show()
 
 if __name__ == "__main__":
     #h1 = cruce_parcialmente_mapeado(np.array([0,1,2,3,4,5,6,7]), np.array([5,4,2,0,6,3,7,1]), np.array([2,5]))
     #print(h1)
     #h2 = cruce_parcialmente_mapeado(np.array([5,4,2,0,6,3,7,1]), np.array([0,1,2,3,4,5,6,7]), np.array([2,5]))
     #print(h2)
-    #main()
-
-    # Lectura de parámetros
-    f_params = open("params.json")
-    params = json.load(f_params)
-    f_params.close()
-
-    # Inicialización de ciudades en función de parámetros
-    matriz_distancias = init_ciudades(params["nciudades"], params["radio"])
-
-    # Lectura de ciudades
-    ciudades = np.loadtxt("ciudades.csv",delimiter=",")
-    #print(ciudades)
-
-    # Generación de población inicial
-    poblacion = init_poblacion(params["tam_poblacion"], matriz_distancias, params["nciudades"])
-
-    padres = seleccion_padres(params["npadres"], params["tam_poblacion"], poblacion)
+    main()
 
     #[print(f'G: {poblacion[i].genotipo} \n F: {poblacion[i].fitness} \n Gp: {padres[i].genotipo} \n Fp: {padres[i].fitness} \n') for i in range(params["tam_poblacion"])]

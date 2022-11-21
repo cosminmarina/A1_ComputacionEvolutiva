@@ -2,10 +2,14 @@
     "nciudades":100,
     "radio":20,
     "tam_poblacion":10,
-    "ngen":1000,
-    "npadres":3,
+    "niter":10,
+    "ngen":5000,
+    "pasos_intervalos":100,
+    "npadres":7,
     "pcruce":0.3,
-    "pmutacion":0.2,
+    "pmutacion":0.6,
     "eliminacionelitismo":"peor",
-    "nelitismo":1
+    "nelitismo":1,
+    "verbose":false,
+    "display_time":1
 }
