@@ -4,6 +4,7 @@ import json
 import scipy as sp
 import time
 from matplotlib import pyplot as plt
+from joblib import Parallel, delayed
 
 class Individuo:
     def __init__(self, genotipo, fitness):
@@ -41,7 +42,7 @@ def generacion(params, poblacion, matriz_distancias): # STEP
 def seleccion_padres(npadres, tam_poblacion, poblacion):
     padres = []
     for i_torneo in range(tam_poblacion):
-        padres_elegidos = poblacion[np.random.choice(tam_poblacion, npadres)]
+        padres_elegidos = poblacion[np.random.choice(tam_poblacion, int(npadres))]
         ind_padre = np.argmin(padres_elegidos)
         padres.append(padres_elegidos[ind_padre])
     return np.array(padres)
@@ -133,17 +134,24 @@ def fitness(indiv, matriz_distancias, nciudades):
             distancia += matriz_distancias[int(indiv[i])][int(indiv[i+1])]
     return distancia
 
-def generar_curva_progreso(evolucion_fitness, array_bars, pasos_intervalos, ngen):
+def generar_grafica(evolucion_fitness, array_bars, pasos_intervalos, ngen, robustez_parametro=False, x_vector=None):
     fig = plt.figure()
     #x = np.arange(1, (ngen/pasos_intervalos))
-    x = np.arange(ngen)
+    if not robustez_parametro:
+        x = np.arange(ngen)
+    else:
+        x = x_vector
     #plt.plot(evolucion_fitness)
     plt.errorbar(x, evolucion_fitness, yerr=array_bars, errorevery=pasos_intervalos, capsize=3.0, ecolor='black')
-    plt.xlabel("Generaciones")
     plt.ylabel("Fitness")
-    plt.title("Curva de progreso")
+    if not robustez_parametro:
+        plt.xlabel("Generaciones")
+        plt.title("Curva de progreso")
+    else:
+        plt.xlabel(robustez_parametro)
+        plt.title(f'Robustez frente a cambios de valor en {robustez_parametro}')
     plt.ticklabel_format(axis='y', style="sci", scilimits=None)
-    plt.savefig("./figures/curva_progreso_7P_03C_06M.png")
+    plt.savefig("./figures/robustez_pcruce_3P_055M.png")
     plt.show()
 
 
@@ -173,7 +181,17 @@ def algoritmo_genetico(params):
 
     return evolucion_fitness, poblacion
 
-def main():
+def algoritmo_genetico_paralelo(params):
+    # Solo como wraper porque la poblacion de Individuos no se puede juntar en el pool de resultados
+    evolucion_fitness, _ = algoritmo_genetico(params)
+    return evolucion_fitness
+
+def algoritmo_genetico_comparacion_parametros(params, value, comp_param_name):
+    params[comp_param_name] = value
+    evolucion_fitness, _ = algoritmo_genetico(params)
+    return evolucion_fitness[-1]
+
+def main_progreso():
     # Lectura de parámetros
     f_params = open("params.json")
     params = json.load(f_params)
@@ -182,23 +200,41 @@ def main():
     # Inicialización de ciudades en función de parámetros
     init_ciudades(params["nciudades"], params["radio"])
 
-    evolucion_fitness_iter = []
-    for i in range(params["niter"]):
-        evolucion_fitness, poblacion = algoritmo_genetico(params)
-        evolucion_fitness_iter.append(evolucion_fitness)
+    delayed_funcs = [delayed(algoritmo_genetico_paralelo)(params.copy()) for i in range(params["niter"])]
+    parallel_pool = Parallel(n_jobs=params["niter"]) 
+    resultado = parallel_pool(delayed_funcs)
 
-    evolucion_fitness_iter = np.array(evolucion_fitness_iter)
+    evolucion_fitness_iter = np.reshape(resultado, (params["niter"],params["ngen"]))
+
+    print(evolucion_fitness_iter[0][:100])
     mean_evolucion_fitness = evolucion_fitness_iter.mean(axis=0)
     std_evolucion_fitness = evolucion_fitness_iter.std(axis=0)
 
-    generar_curva_progreso(mean_evolucion_fitness, std_evolucion_fitness, params["pasos_intervalos"], params["ngen"])
+    generar_grafica(mean_evolucion_fitness, std_evolucion_fitness, params["pasos_intervalos"], params["ngen"])
+
+
+def main_parametro():
+    # Lectura de parámetros
+    f_params = open("params.json")
+    params = json.load(f_params)
+    f_params.close()
+
+    # Inicialización de ciudades en función de parámetros
+    init_ciudades(params["nciudades"], params["radio"])
+
+    comp_param_vector = np.linspace(params["comp_param_inicio"], params["comp_param_final"], params["comp_param_pasos"])
+    delayed_funcs = [delayed(algoritmo_genetico_comparacion_parametros)(params.copy(), i, params["comp_param_name"]) for i in np.sort(np.repeat(comp_param_vector,params["niter"]))]
+    parallel_pool = Parallel(n_jobs=params["niter"]) 
+    resultado = parallel_pool(delayed_funcs)
+
+    evolucion_fitness_iter = np.reshape(resultado, (len(comp_param_vector),params["niter"])).T
+
+    mean_evolucion_fitness = evolucion_fitness_iter.mean(axis=0)
+    std_evolucion_fitness = evolucion_fitness_iter.std(axis=0)
+
+    generar_grafica(mean_evolucion_fitness, std_evolucion_fitness, params["pasos_intervalos"], params["ngen"], robustez_parametro=params["comp_param_name"], x_vector=comp_param_vector)
 
 
 if __name__ == "__main__":
-    #h1 = cruce_parcialmente_mapeado(np.array([0,1,2,3,4,5,6,7]), np.array([5,4,2,0,6,3,7,1]), np.array([2,5]))
-    #print(h1)
-    #h2 = cruce_parcialmente_mapeado(np.array([5,4,2,0,6,3,7,1]), np.array([0,1,2,3,4,5,6,7]), np.array([2,5]))
-    #print(h2)
-    main()
-
-    #[print(f'G: {poblacion[i].genotipo} \n F: {poblacion[i].fitness} \n Gp: {padres[i].genotipo} \n Fp: {padres[i].fitness} \n') for i in range(params["tam_poblacion"])]
+    #main_progreso()
+    main_parametro()

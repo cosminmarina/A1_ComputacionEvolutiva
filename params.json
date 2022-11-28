@@ -3,13 +3,17 @@
     "radio":20,
     "tam_poblacion":10,
     "niter":10,
-    "ngen":5000,
-    "pasos_intervalos":100,
-    "npadres":7,
+    "ngen":2000,
+    "pasos_intervalos":1,
+    "npadres":3,
     "pcruce":0.3,
-    "pmutacion":0.6,
+    "pmutacion":0.55,
     "eliminacionelitismo":"peor",
     "nelitismo":1,
     "verbose":false,
-    "display_time":1
+    "display_time":1,
+    "comp_param_inicio":0.0001,
+    "comp_param_final":0.9,
+    "comp_param_pasos":40,
+    "comp_param_name":"pcruce"
 }
