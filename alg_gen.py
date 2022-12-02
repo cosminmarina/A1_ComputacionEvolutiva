@@ -134,7 +134,7 @@ def fitness(indiv, matriz_distancias, nciudades):
             distancia += matriz_distancias[int(indiv[i])][int(indiv[i+1])]
     return distancia
 
-def generar_grafica(evolucion_fitness, array_bars, pasos_intervalos, ngen, robustez_parametro=False, x_vector=None):
+def generar_grafica(evolucion_fitness, array_bars, pasos_intervalos, ngen, file_name, robustez_parametro=False, x_vector=None):
     fig = plt.figure()
     #x = np.arange(1, (ngen/pasos_intervalos))
     if not robustez_parametro:
@@ -151,7 +151,7 @@ def generar_grafica(evolucion_fitness, array_bars, pasos_intervalos, ngen, robus
         plt.xlabel(robustez_parametro)
         plt.title(f'Robustez frente a cambios de valor en {robustez_parametro}')
     plt.ticklabel_format(axis='y', style="sci", scilimits=None)
-    plt.savefig("./figures/robustez_pcruce_3P_055M.png")
+    plt.savefig(file_name)
     plt.show()
 
 
@@ -171,7 +171,7 @@ def algoritmo_genetico(params):
     evolucion_fitness = []
 
     # Iteraciones en el orden de ngen
-    for i in range(params["ngen"]):
+    for i in range(int(params["ngen"])):
         i_poblacion = generacion(params, poblacion.copy(), matriz_distancias)
         evolucion_fitness.append(i_poblacion[0].fitness)
         poblacion = i_poblacion.copy()
@@ -208,9 +208,9 @@ def main_progreso():
 
     print(evolucion_fitness_iter[0][:100])
     mean_evolucion_fitness = evolucion_fitness_iter.mean(axis=0)
-    std_evolucion_fitness = evolucion_fitness_iter.std(axis=0)
+    std_evolucion_fitness = evolucion_fitness_iter.std(axis=0)*(sp.stats.norm.isf((1-params["conf"])/2)/np.sqrt(params["niter"]))
 
-    generar_grafica(mean_evolucion_fitness, std_evolucion_fitness, params["pasos_intervalos"], params["ngen"])
+    generar_grafica(mean_evolucion_fitness, std_evolucion_fitness, params["pasos_intervalos"], int(params["ngen"]), params["file_name"])
 
 
 def main_parametro():
@@ -230,9 +230,9 @@ def main_parametro():
     evolucion_fitness_iter = np.reshape(resultado, (len(comp_param_vector),params["niter"])).T
 
     mean_evolucion_fitness = evolucion_fitness_iter.mean(axis=0)
-    std_evolucion_fitness = evolucion_fitness_iter.std(axis=0)
+    std_evolucion_fitness = evolucion_fitness_iter.std(axis=0)*(sp.stats.norm.isf((1-params["conf"])/2)/np.sqrt(params["niter"]))
 
-    generar_grafica(mean_evolucion_fitness, std_evolucion_fitness, params["pasos_intervalos"], params["ngen"], robustez_parametro=params["comp_param_name"], x_vector=comp_param_vector)
+    generar_grafica(mean_evolucion_fitness, std_evolucion_fitness, params["pasos_intervalos"], int(params["ngen"]), params["file_name"], robustez_parametro=params["comp_param_name"], x_vector=comp_param_vector)
 
 
 if __name__ == "__main__":
