@@ -6,6 +6,17 @@ import time
 from matplotlib import pyplot as plt
 from joblib import Parallel, delayed
 
+"""
+  Clase que repesenta la estructura de los individuos
+  que formarán parte de la población. Estos individuos 
+  tendrán su genotipo (solución) asociaciado y el valor
+  de su fitness. Esto se hace con el objetivo de no volver
+  a calcular el fitness nuevamente y evitar evaluaciones
+  innecesarias. El ndarray de la población estará compuesto
+  por objetos de esta clase.
+  Por otro lado, la clase también nos sirve para poder fijar
+  un criterio de comparación de soluciones (__lt__).
+"""
 class Individuo:
     def __init__(self, genotipo, fitness):
         self.genotipo = genotipo
@@ -14,17 +25,82 @@ class Individuo:
     def __lt__(self, other):
         return self.fitness < other.fitness
 
+"""
+ |---------------------------------------------------|
+ | init_ciudades                                     |
+ |---------------------------------------------------|
+ | Función que inicializa la disposición de las      |
+ | ciudades dada la cantidad de ciudades y el radio  |
+ | de la circunferencia inscrita dentro del cuadrado |
+ | que delimita el area en el que están las ciudades.|
+ |___________________________________________________|
+ | int, int ->                                       |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | nciudades: numero de ciudades a inicializar.      |
+ | radio: radio que define el area en el que se      |
+ |        encuentran las ciudades.                   |
+ |___________________________________________________|
+ | Salida:                                           |
+ | no hay salida, solo se crea un csv con la         |
+ | disposición de las ciudades.                      |
+ |---------------------------------------------------|
+"""
 def init_ciudades(nciudades, radio):
     # Generamos nciudades en coordenadas cartesianas desde -radio a +radio para x e y
     ciudades = (np.random.random([nciudades,2]) * radio*2) - radio
     np.savetxt("ciudades.csv", ciudades, delimiter=",")
 
+"""
+ |---------------------------------------------------|
+ | cargas_ciudades                                   |
+ |---------------------------------------------------|
+ | Función que lee las ciudades de un .csv, las carga|
+ | en una matriz y calcula la matriz de distancias.  |
+ |___________________________________________________|
+ | string -> ndarray, ndarray                        |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | path: string que indica el archivo a leer.        |
+ |___________________________________________________|
+ | Salida:                                           |
+ | ciudades: ndarray que contiene las ciudades. Esto |
+ |           significa que la ciudad que ocupa la    |
+ |           posición 0 en este ndarray será la que  |
+ |           esté representada como 0 en los array de|
+ |           permutaciones, y así para cada ciudad.  |
+ | distance_matrix: matriz de distancias entre las   |
+ |                  ciudades. Se usará para calcular |
+ |                  la función de fitness.           |
+ |---------------------------------------------------|
+"""
 def cargar_ciudades(path):
     ciudades = np.loadtxt(path, delimiter=",")
     # p es la p-norma de Minkowski. p=1 distancia rectilínea, p=2 distancia euclidiana
     return (ciudades, sp.spatial.distance_matrix(ciudades, ciudades, p=2))
-    
 
+"""
+ |---------------------------------------------------|
+ | init_poblacion                                    |
+ |---------------------------------------------------|
+ | Función que inicializa la población del algoritmo |
+ | genético, dado un tamaño y número de ciudades.    |
+ |___________________________________________________|
+ | int, ndarray, int -> ndarray                      |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | tam_poblacion: tamaño de la población de genotipos|
+ |                sobre la que se operará.           |
+ | matriz_distancias: matriz de distancias entre las |
+ |                    ciudades.                      |
+ | nciudades: número de ciudades. Esto define también|
+ |            el tamaño que tendrá el genotipo.      |
+ |___________________________________________________|
+ | Salida:                                           |
+ | población: ndarray que contiene la población de   |
+ |            genotipos sobre la que se trabajará.   |
+ |---------------------------------------------------|
+"""
 def init_poblacion(tam_poblacion, matriz_distancias, nciudades):
     # Generamos los genotipos de la poblacion por pormutaciones aleatorias
     genotipos_poblacion = [np.random.permutation(nciudades) for i in range(tam_poblacion)]
@@ -32,6 +108,31 @@ def init_poblacion(tam_poblacion, matriz_distancias, nciudades):
     poblacion = np.array([Individuo(genotipo, fitness(genotipo, matriz_distancias, nciudades)) for genotipo in genotipos_poblacion])
     return np.sort(poblacion)
 
+"""
+ |---------------------------------------------------|
+ | generacion                                        |
+ |---------------------------------------------------|
+ | Función que sintetiza el flujo del algoritmo      |
+ | genético. El algoritmo está compuesto por varias  |
+ | generaciones o pasos. Cada generación está, a su  |
+ | vez, compuesta por una selección de padres, un    |
+ | cruce, una mutación y una selección de hijos.     |
+ |___________________________________________________|
+ | dict, ndarray, ndarray -> ndarray                 |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | params: un diccionario cargado de params.json que |
+ |         contiene todos los parámetros necesarios. |
+ | población: ndarray que contiene la población de   |
+ |            genotipos al inicio de la generación.  |
+ | matriz_distancias: matriz de distancias entre las |
+ |                    ciudades.                      |
+ |___________________________________________________|
+ | Salida:                                           |
+ | hijos: ndarray que contiene la población de       |
+ |        genotipos tras realizar la generación.     |
+ |---------------------------------------------------|
+"""
 def generacion(params, poblacion, matriz_distancias): # STEP
     padres = seleccion_padres(params["npadres"], params["tam_poblacion"], poblacion.copy())
     cruzados = cruce(params["pcruce"], params["tam_poblacion"], params["nciudades"], padres.copy(), matriz_distancias)
@@ -39,6 +140,28 @@ def generacion(params, poblacion, matriz_distancias): # STEP
     hijos = seleccion_hijos(poblacion[0], mutados.copy(), params["eliminacionelitismo"], params["tam_poblacion"])
     return hijos
 
+"""
+ |---------------------------------------------------|
+ | seleccion_padres                                  |
+ |---------------------------------------------------|
+ | Función que lleva a cabo la selección de padres   |
+ | por torneo.                                       |
+ |___________________________________________________|
+ | int, int, ndarray -> ndarray                      |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | npadres: numero de padres que se seleccionan de la|
+ |          población por cada torneo.               |
+ | tam_poblacion: tamaño de la población de genotipos|
+ |                sobre la que se operará.           |
+ | población: ndarray que contiene la población de   |
+ |            genotipos al inicio de la generación.  |
+ |___________________________________________________|
+ | Salida:                                           |
+ | padres: ndarray que contiene la población de      |
+ |         genotipos tras la seleción de padres.     |
+ |---------------------------------------------------|
+"""
 def seleccion_padres(npadres, tam_poblacion, poblacion):
     padres = []
     for i_torneo in range(tam_poblacion):
@@ -47,6 +170,33 @@ def seleccion_padres(npadres, tam_poblacion, poblacion):
         padres.append(padres_elegidos[ind_padre])
     return np.array(padres)
 
+"""
+ |---------------------------------------------------|
+ | cruce                                             |
+ |---------------------------------------------------|
+ | Función que elige los 2 padres a cruzar, hace las |
+ | preparaciones pertinentes, llama al cruce que     |
+ | corresponda si se da la probabilidad de curce y   |
+ | gestiona la creación de la población cruzada.     |
+ |___________________________________________________|
+ | int, int, int, ndarray, ndarray -> ndarray        |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | pcruce: probabilidad de cruce.                    |
+ | tam_poblacion: tamaño de la población de genotipos|
+ |                sobre la que se operará.           |
+ | nciudades: número de ciudades o, lo que es lo     |
+ |            mismo, el tamaño del genotipo.         |
+ | padres: ndarray que contiene la población de      |
+ |            genotipos que se cruzará.              |
+ | matriz_distancias: matriz de distancias entre las |
+ |                    ciudades.                      |
+ |___________________________________________________|
+ | Salida:                                           |
+ | cruzados: ndarray que contiene la población de    |
+ |           genotipos tras el cruce.                |
+ |---------------------------------------------------|
+"""
 def cruce(pcruce, tam_poblacion, nciudades, padres, matriz_distancias):
     cruzados = []
     for i_cruce in range(tam_poblacion//2):
@@ -68,6 +218,24 @@ def cruce(pcruce, tam_poblacion, nciudades, padres, matriz_distancias):
         cruzados.append(padres[0])
     return np.array(cruzados)
 
+"""
+ |---------------------------------------------------|
+ | cruce_parcialmente_mapeado                        |
+ |---------------------------------------------------|
+ | Función que lleva a cabo el cruce parcialmente    |
+ | mapeado sobre 2 genotipos y unas posiciones dadas.|
+ |___________________________________________________|
+ | ndarray, ndarray, ndarray -> ndarray              |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | genotipo_1: genotipo que hará de padre 1.         |
+ | genotipo_2: genotipo que hará de padre 2.         |
+ | posiciones: posiciones que definen el segmento.   |
+ |___________________________________________________|
+ | Salida:                                           |
+ | hijo: el hijo 1 producido por el curce.           |
+ |---------------------------------------------------|
+"""
 def cruce_parcialmente_mapeado(genotipo_1, genotipo_2, posiciones):
     # Segmentamos
     hijo = np.zeros(len(genotipo_1)) - 1
@@ -96,12 +264,59 @@ def cruce_parcialmente_mapeado(genotipo_1, genotipo_2, posiciones):
         hijo[int(np.where(genotipo_2 == genotipo_en_posicion)[0])] = elem
     return hijo
 
+"""
+ |---------------------------------------------------|
+ | mutacion                                          |
+ |---------------------------------------------------|
+ | Función que prepara la mutación sobre un conjunto |
+ | de genotipos seleccionados de la población.       |
+ |___________________________________________________|
+ | int, int, ndarray, ndarray, int -> ndarray        |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | pmutacion: probabilidad de que un genotipo de la  |
+ |            población sea mutado.                  |
+ | tam_poblacion: tamaño de la población de genotipos|
+ |                sobre la que se operará.           |
+ | población: ndarray que contiene la población de   |
+ |            genotipos al inicio de la generación.  |
+ | matriz_distancias: matriz de distancias entre las |
+ |                    ciudades.                      |
+ | nciudades: número de ciudades o, lo que es lo     |
+ |            mismo, el tamaño del genotipo.         |
+ |___________________________________________________|
+ | Salida:                                           |
+ | poblacion: la población tras haber realizado las  |
+ |            mutaciones correspondientes.           |
+ |---------------------------------------------------|
+"""
 def mutacion(pmutacion, tam_poblacion, poblacion, matriz_distancias, nciudades):
     mascara_mutacion = np.random.random(tam_poblacion) <= pmutacion
     poblacion[mascara_mutacion] = mutacion_por_intercambio(poblacion[mascara_mutacion], matriz_distancias, nciudades)
     return np.sort(poblacion)
-    
 
+"""
+ |---------------------------------------------------|
+ | mutacion_por_intercambio                          |
+ |---------------------------------------------------|
+ | Función que lleva a cabo la mutación en concreto, |
+ | en este caso, por intercambio.                    |
+ |___________________________________________________|
+ | ndarray, ndarray, int -> ndarray                  |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | individuos: ndarray de los genotipos a los que se |
+ |             aplicará la mutación.                 |
+ | matriz_distancias: matriz de distancias entre las |
+ |                    ciudades.                      |
+ | nciudades: número de ciudades o, lo que es lo     |
+ |            mismo, el tamaño del genotipo.         |
+ |___________________________________________________|
+ | Salida:                                           |
+ | mutados: la población tras haber realizado las    |
+ |            mutaciones por intercambio.            |
+ |---------------------------------------------------|
+"""
 def mutacion_por_intercambio(individuos, matriz_distancias, nciudades):
     mutados = []
     for indiv in individuos:
@@ -111,8 +326,31 @@ def mutacion_por_intercambio(individuos, matriz_distancias, nciudades):
         mutados.append(Individuo(genotipo, fitness(genotipo, matriz_distancias, nciudades)))
     return np.array(mutados)
 
-
-def seleccion_hijos(mejor_padre, mutados, eliminacionelitismo, tam_poblacion):
+"""
+ |---------------------------------------------------|
+ | seleccion_hijos                                   |
+ |---------------------------------------------------|
+ | Función que selecciona los hijos mediante un      |
+ | modelo generacional con eletismo para el mejor de |
+ | los padres según una estrategia definida.         |
+ |___________________________________________________|
+ | ndarray, ndarray, string, int -> ndarray          |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | mejor_padre: genotipo del mejor padre.            |
+ | mutados: ndarray de los genotipos a los que se    |
+ |          aplicará la selección.                   |
+ | eliminacionelismo: tipo de eliminacion que se     |
+ |                    llevará a cabo en los hijos.   |
+ | tam_poblacion: tamaño de la población de genotipos|
+ |                sobre la que se operará.           |
+ |___________________________________________________|
+ | Salida:                                           |
+ | mutados: la población tras haber realizado las    |
+ |            mutaciones por intercambio.            |
+ |---------------------------------------------------|
+"""
+def seleccion_hijos(mejor_padres, mutados, eliminacionelitismo, tam_poblacion):
     # Minimizamos, por lo que el padre es mejor si es <= al menor hijo
     if mejor_padre.fitness <= mutados[0].fitness:
         if eliminacionelitismo == "peor":
@@ -236,5 +474,5 @@ def main_parametro():
 
 
 if __name__ == "__main__":
-    #main_progreso()
-    main_parametro()
+    main_progreso()
+    #main_parametro()
