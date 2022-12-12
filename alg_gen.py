@@ -350,7 +350,7 @@ def mutacion_por_intercambio(individuos, matriz_distancias, nciudades):
  |            mutaciones por intercambio.            |
  |---------------------------------------------------|
 """
-def seleccion_hijos(mejor_padres, mutados, eliminacionelitismo, tam_poblacion):
+def seleccion_hijos(mejor_padre, mutados, eliminacionelitismo, tam_poblacion):
     # Minimizamos, por lo que el padre es mejor si es <= al menor hijo
     if mejor_padre.fitness <= mutados[0].fitness:
         if eliminacionelitismo == "peor":
@@ -361,8 +361,31 @@ def seleccion_hijos(mejor_padres, mutados, eliminacionelitismo, tam_poblacion):
             return np.sort(np.insert(np.delete(mutados, posicion, 0), posicion, mejor_padre, axis=0))
     else:
         return mutados
-    
 
+"""
+ |---------------------------------------------------|
+ | fitness                                           |
+ |---------------------------------------------------|
+ | Función a optimizar por parte del algoritmo. En   |
+ | este caso la optimización trata de minimizar. Es  |
+ | habitual hacer uso de un factor -1 para convertir |
+ | la minimización en maximización o viceversa.      |
+ | Necesario para la creación de un Individuo.       |
+ |___________________________________________________|
+ | ndarray, ndarray, int -> float                    |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | indiv: genotipo cuyo fitness se desea evaluar.    |
+ | matriz_distancias: matriz de distancias entre las |
+ |                    ciudades.                      |
+ | nciudades: número de ciudades o, lo que es lo     |
+ |            mismo, el tamaño del genotipo.         |
+ |___________________________________________________|
+ | Salida:                                           |
+ | distancia: distancia entre las ciudades recorridas|
+ |            según la dirección del genotipo.       |
+ |---------------------------------------------------|
+"""
 def fitness(indiv, matriz_distancias, nciudades):
     distancia = 0
     for i in range(nciudades):
@@ -372,6 +395,50 @@ def fitness(indiv, matriz_distancias, nciudades):
             distancia += matriz_distancias[int(indiv[i])][int(indiv[i+1])]
     return distancia
 
+"""
+ |---------------------------------------------------|
+ | generar_grafica                                   |
+ |---------------------------------------------------|
+ | Función que genera las gráficas necesarias para el|
+ | issue #7, esto es, para la generación de los      |
+ | resultados dados unos experimentos. Originalmente |
+ | se diseñó para la curva de progreso, por lo que   |
+ | son este tipo de gráficas las que genera por      |
+ | defecto. Con unos flags se puede cambiar el tipo  |
+ | de gráfica.                                       |
+ |___________________________________________________|
+ | ndarray, ndarray, int, int, string,               |
+ |    bool/string, ndarray ->                        |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | evolucion_fitness: array que contiene los valores |
+ |                    que ha tomado el fitness en    |
+ |                    cada generación.               |
+ | array_bars: array que contiene el valor de los    |
+ |             intervalos de confianza.              |
+ | pasos_intervalos: cada cuantas generaciones se    |
+ |                   muestran los intervalos.        |
+ | ngen: número de generaciones.                     |
+ | file_name: nombre del archivo donde se guardará la|
+ |            gráfica generada.                      |
+ | robustez_parametro: flag por defecto False. Este  |
+ |             implica que por defecto se generará la|
+ |             curva de progreso. En caso de no ser  |
+ |             False, contendrá el nombre del        |
+ |             parámetro respecto al cual queremos   |
+ |             analizar la robustez del algoritmo. En|
+ |             ese caso se generará una gráfica de   |
+ |             robustez frente a los cambios de un   |
+ |             parámetro.                            |
+ | x_vector: solo en caso de gráfica de robustez.    |
+ |           Contiene los valores que toma el        |
+ |           parámetro en este análisis.             |
+ |___________________________________________________|
+ | Salida:                                           |
+ | no produce salida, guarda en file_name la gráfica |
+ | que se ha generado.                               |
+ |---------------------------------------------------|
+"""
 def generar_grafica(evolucion_fitness, array_bars, pasos_intervalos, ngen, file_name, robustez_parametro=False, x_vector=None):
     fig = plt.figure()
     #x = np.arange(1, (ngen/pasos_intervalos))
@@ -392,7 +459,33 @@ def generar_grafica(evolucion_fitness, array_bars, pasos_intervalos, ngen, file_
     plt.savefig(file_name)
     plt.show()
 
-
+"""
+ |---------------------------------------------------|
+ | algoritmo_genetico                                |
+ |---------------------------------------------------|
+ | Función que hace de wrapper y gestora del proceso |
+ | que lleva a cabo el algoritmo genético. Se encarga|
+ | de llamar a las funciones necesarias definidas    |
+ | anteriormente.                                    |
+ | Como algoritmo genético contiene una selección de |
+ | padres, cruce, mutación y selección de hijos, pero|
+ | podría no ser el caso. Por ello, es en generación |
+ | donde se especifica el orden de y qué funciones   |
+ | se utilizan.                                      |
+ |___________________________________________________|
+ | dict -> ndarray, ndarray                          |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | params: diccionario que contiene todos los        |
+ |         parámetros nnecesarios para el algoritmo. |
+ |         Estos se cargan previamente de un ".json".|
+ |___________________________________________________|
+ | Salida:                                           |
+ | evolucion_fitness: array con los valores que toma |
+ |                    el fitness en cada generación. |
+ | población: la población final resultante.         |
+ |---------------------------------------------------|
+"""
 def algoritmo_genetico(params):
     ciudades, matriz_distancias = cargar_ciudades("./ciudades.csv")
 
@@ -419,16 +512,74 @@ def algoritmo_genetico(params):
 
     return evolucion_fitness, poblacion
 
+"""
+ |---------------------------------------------------|
+ | algoritmo_genetico_paralelo                       |
+ |---------------------------------------------------|
+ | Wrapper al algorimo_genetico que permite la       |
+ | utilización de Parallel de joblib. Esto reduce el |
+ | tiempo de cómputo del algoritmo.                  |
+ |___________________________________________________|
+ | dict -> ndarray                                   |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | params: diccionario que contiene todos los        |
+ |         parámetros nnecesarios para el algoritmo. |
+ |         Estos se cargan previamente de un ".json".|
+ |___________________________________________________|
+ | Salida:                                           |
+ | evolucion_fitness: array con los valores que toma |
+ |                    el fitness en cada generación. |
+ |---------------------------------------------------|
+"""
 def algoritmo_genetico_paralelo(params):
     # Solo como wraper porque la poblacion de Individuos no se puede juntar en el pool de resultados
     evolucion_fitness, _ = algoritmo_genetico(params)
     return evolucion_fitness
 
+"""
+ |---------------------------------------------------|
+ | algoritmo_genetico_comparacion_parametros         |
+ |---------------------------------------------------|
+ | Wrapper al algorimo_genetico que permite la       |
+ | utilización de Parallel de joblib para el caso    |
+ | concreto de análisis de la robustez.              |
+ |___________________________________________________|
+ | dict -> float                                     |
+ |___________________________________________________|
+ | Entrada:                                          |
+ | params: diccionario que contiene todos los        |
+ |         parámetros nnecesarios para el algoritmo. |
+ |         Estos se cargan previamente de un ".json".|
+ |___________________________________________________|
+ | Salida:                                           |
+ | evolucion_fitness[-1]: valor del fitness en la    |
+ |                        última generación.         |
+ |---------------------------------------------------|
+"""
 def algoritmo_genetico_comparacion_parametros(params, value, comp_param_name):
     params[comp_param_name] = value
     evolucion_fitness, _ = algoritmo_genetico(params)
     return evolucion_fitness[-1]
 
+"""
+ |---------------------------------------------------|
+ | main_progreso                                     |
+ |---------------------------------------------------|
+ | Función main para generar la curva de progreso    |
+ | tras un número de ejecuciones, todo ello, al igual|
+ | que lo demás, especificado por unos parámetros.   |
+ | Hace las llamadas necesarias a algoritmo_genetico |
+ | y trata de la forma indicada sus salidas.         |
+ |___________________________________________________|
+ |  ->                                               |
+ |___________________________________________________|
+ | Entrada:                                          |
+ |___________________________________________________|
+ | Salida:                                           |
+ | no hay, se genera gráfica de progreso y se guarda.|
+ |---------------------------------------------------|
+"""
 def main_progreso():
     # Lectura de parámetros
     f_params = open("params.json")
@@ -450,7 +601,24 @@ def main_progreso():
 
     generar_grafica(mean_evolucion_fitness, std_evolucion_fitness, params["pasos_intervalos"], int(params["ngen"]), params["file_name"])
 
-
+"""
+ |---------------------------------------------------|
+ | main_robustez                                     |
+ |---------------------------------------------------|
+ | Función main para generar la robustez frente a    |
+ | cambios en un parámetro. Todo está especificado en|
+ | un ".json".
+ | Hace las llamadas necesarias a algoritmo_genetico |
+ | y trata de la forma indicada sus salidas.         |
+ |___________________________________________________|
+ |  ->                                               |
+ |___________________________________________________|
+ | Entrada:                                          |
+ |___________________________________________________|
+ | Salida:                                           |
+ | no hay, se genera gráfica de robustez y se guarda.|
+ |---------------------------------------------------|
+"""
 def main_parametro():
     # Lectura de parámetros
     f_params = open("params.json")

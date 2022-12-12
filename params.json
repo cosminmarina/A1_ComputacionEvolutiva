@@ -3,19 +3,19 @@
     "radio":20,
     "tam_poblacion":100,
     "niter":3,
-    "ngen":7500,
+    "ngen":10000,
     "pasos_intervalos":100,
     "npadres":3,
-    "pcruce":0.2,
+    "pcruce":0.7,
     "pmutacion":0.2,
     "eliminacionelitismo":"peor",
     "nelitismo":1,
-    "conf":0.75,
+    "conf":0.65,
     "verbose":false,
     "display_time":1,
     "comp_param_inicio":0.001,
     "comp_param_final":0.99,
     "comp_param_pasos":20,
     "comp_param_name":"pcruce",
-    "file_name":"./figures/curva_progreso_caso2_3P_02C_02M_7500G_3I_20_075CF.png"
+    "file_name":"./figures/curva_progreso_caso2_3P_07C_02M_10000G_3I_20_065CF.png"
 }
