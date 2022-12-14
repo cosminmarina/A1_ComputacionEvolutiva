@@ -137,7 +137,7 @@ def generacion(params, poblacion, matriz_distancias): # STEP
     padres = seleccion_padres(params["npadres"], params["tam_poblacion"], poblacion.copy())
     cruzados = cruce(params["pcruce"], params["tam_poblacion"], params["nciudades"], padres.copy(), matriz_distancias)
     mutados = mutacion(params["pmutacion"], params["tam_poblacion"], cruzados.copy(), matriz_distancias, params["nciudades"])
-    hijos = seleccion_hijos(poblacion[0], mutados.copy(), params["eliminacionelitismo"], params["tam_poblacion"])
+    hijos = seleccion_hijos(poblacion[:params["nelitismo"]], mutados.copy(), params["eliminacionelitismo"], params["tam_poblacion"], params["nelitismo"])
     return hijos
 
 """
@@ -350,17 +350,33 @@ def mutacion_por_intercambio(individuos, matriz_distancias, nciudades):
  |            mutaciones por intercambio.            |
  |---------------------------------------------------|
 """
-def seleccion_hijos(mejor_padre, mutados, eliminacionelitismo, tam_poblacion):
+def seleccion_hijos(mejores_padres, mutados, eliminacionelitismo, tam_poblacion, nelitismo=1):
     # Minimizamos, por lo que el padre es mejor si es <= al menor hijo
-    if mejor_padre.fitness <= mutados[0].fitness:
-        if eliminacionelitismo == "peor":
-            return np.insert(mutados[1:], 0, mejor_padre, axis=0)
-        elif eliminacionelitismo == "aleatorio":
-            posicion = np.random.randint(tam_poblacion)
-            # Sustituye el mejor padre por el hijo que ocupa una posicion aleatoria y ordena por mejor fitness
-            return np.sort(np.insert(np.delete(mutados, posicion, 0), posicion, mejor_padre, axis=0))
+    if nelitismo==1:
+        if mejores_padres.fitness <= mutados[0].fitness:
+            if eliminacionelitismo == "peor":
+                return np.insert(mutados[1:], 0, mejores_padres, axis=0)
+            elif eliminacionelitismo == "aleatorio":
+                posicion = np.random.randint(tam_poblacion)
+                # Sustituye el mejor padre por el hijo que ocupa una posicion aleatoria y ordena por mejor fitness
+                return np.sort(np.insert(np.delete(mutados, posicion, 0), posicion, mejores_padres, axis=0))
+        else:
+            return mutados
     else:
-        return mutados
+        mask_padres = mejores_padres < mutados[0]
+        if len(mask_padres[mask_padres==1]) > 0:
+            elite_padres = mejores_padres[mask_padres]
+            if eliminacionelitismo == "peor":
+                seleccionados = np.concatenate((elite_padres, mutados[:-len(elite_padres)]),axis=0)
+                return seleccionados
+            elif eliminacionelitismo == "aleatorio":
+                posicion = np.random.choice(np.arange(tam_poblacion),nelitismo,replace=False)
+                mutados[posicion] = elite_padres
+                return np.sort(mutados)
+        else:
+            return mutados
+
+
 
 """
  |---------------------------------------------------|
